@@ -3,33 +3,102 @@
 #![allow(unused_imports)]
 
 
-mod types;
-use types::Machine;
+
 use std::io;
+use std::env;
+use std::process;
+use std::fs;
 
-fn load_machine(path: &str) -> Machine {
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
 
-    let content: String = std::fs::read_to_string(path).expect("could not read file");
+
+
+#[derive(Serialize, Deserialize, Debug)]
+struct JsonMachineDescription {
+
+    name: String,
+    alphabet: Vec<String>,
+    blank: String,
+	states: Vec<String>,
+	initial: String,
+	finals: Vec<String>,
+	transitions: HashMap<String, Value>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Transition {
+
+    pub read: char,
+    pub to_state: String,
+    pub write: char,
+    pub action: bool,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Machine {
+
+    pub name: String,
+    pub alphabet: Vec<String>,
+    pub blank: char,
+    pub states: Vec<String>,
+    pub initial: String,
+    pub finals: Vec<String>,
+    pub transitions: HashMap<String, Vec<Transition>>,
+}
+
+
+
+
+
+fn help_msg(args: &[String]) {
+	println!(
+"usage: ft_turing [-h] jsonfile input
+
+positional arguments:
+    jsonfile            json description of the machine
+    
+    input               input of the machine
+
+optional arguments:
+    -h, --help	show this help message and exit");
+
+}
+
+fn err_msg(args: &[String]) {
+    println!(
+"error: no such command: `{}`
+
+help: ./ft_turing --help", args[0]);
+}
+
+
+fn parse_json(args: &[String]) -> Machine {
+
+    println!("load_machine");
+    let content: String = std::fs::read_to_string(&args[0]).expect("could not read file");
     serde_json::from_str(&content).expect("invalid json")
 }
 
+
+
 fn main() {
 
-    let machine: Machine = load_machine("unary_sub.json");
+    let args: Vec<String> = env::args().skip(1).collect();
+
+    let args_len = args.len();
+
+    let is_help  = args_len == 1 && args.iter().any(|arg| arg == "--help" || arg == "-h");
+
+    let has_json = args_len == 2 && args[0].ends_with(".json");
+
+    let malformed = args_len == 0 || !is_help || !has_json;
+
+
+    let cmd_action: fn(&[String]) = if malformed {err_msg} else if is_help {help_msg} else {parse_json};
     
-    println!("name:     {}", machine.name);
-    println!("blank:    {}", machine.blank);
-    println!("initial:  {}", machine.initial);
-    println!("alphabet: {:?}", machine.alphabet);
-    println!("states:   {:?}", machine.states);
-    println!("finals:   {:?}", machine.finals);
-    println!("transitions:");
-    for (state, transitions) in &machine.transitions {
-        println!("  {}:", state);
-        for t in transitions {
-            println!("    read: {} -> write: {}, to_state: {}, action: {}", 
-                t.read, t.write, t.to_state, t.action);
-        }
-    }
+
+    cmd_action(&args);
 }
 
